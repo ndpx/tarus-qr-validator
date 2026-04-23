@@ -586,7 +586,7 @@ async function startCamera() {
     video.style.display = 'block';
     document.getElementById('camPlaceholder').style.display = 'none';
     document.getElementById('vfOverlay').style.display = 'flex';
-    video.onloadedmetadata = () => { video.play(); scanInterval = setInterval(scanFrame, 200); };
+    video.onloadedmetadata = () => { video.play(); scanInterval = setInterval(scanFrame, 100); };
   } catch(e) {
     alert('Camera access denied or unavailable. Please use the Upload tab instead.');
   }
@@ -603,13 +603,13 @@ function stopCamera() {
 
 function scanFrame() {
   const video = document.getElementById('videoEl');
-  if(!video || video.readyState < 2) return;
+  if(!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
   const canvas = document.getElementById('canvasEl');
   canvas.width = video.videoWidth; canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
   if(code && code.data) { stopCamera(); processPayload(code.data); }
 }
 
