@@ -1,0 +1,24 @@
+{
+  "name": "tarusQR Validator",
+  "short_name": "tarusQR",
+  "description": "Validate tarusQR codes for NDPX",
+  "start_url": "./tarusQR-validator.html",
+  "display": "standalone",
+  "background_color": "#080640",
+  "theme_color": "#0E0A6B",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logo/Tarus_Devicemark@10x.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo/Tarus_Devicemark_White@10x.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
