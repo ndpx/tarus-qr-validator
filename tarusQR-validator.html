@@ -617,22 +617,29 @@ function scanFrame() {
 function handleFileUpload(e) {
   const file = e.target.files[0];
   if(!file) return;
+  showStatus('fail', '⏳', 'Reading Image…', 'Please wait');
   const reader = new FileReader();
+  reader.onerror = function() { showStatus('fail', '⚠️', 'File Error', 'Could not read the selected file.'); };
   reader.onload = function(ev) {
     const img = new Image();
+    img.onerror = function() { showStatus('fail', '⚠️', 'Image Error', 'Could not load the selected image.'); };
     img.onload = function() {
-      const MAX = 1500;
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.getElementById('canvasEl');
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
-      if(code && code.data) { processPayload(code.data); }
-      else { showStatus('fail', '⚠️', 'No QR Code Found', 'The image could not be decoded. Try a clearer or higher-resolution image.'); }
+      try {
+        const MAX = 1500;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.getElementById('canvasEl');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+        if(code && code.data) { processPayload(code.data); }
+        else { showStatus('fail', '⚠️', 'No QR Code Found', 'The image could not be decoded. Try a clearer or higher-resolution image.'); }
+      } catch(err) {
+        showStatus('fail', '⚠️', 'Processing Error', err.message || 'An unexpected error occurred.');
+      }
     };
     img.src = ev.target.result;
   };
