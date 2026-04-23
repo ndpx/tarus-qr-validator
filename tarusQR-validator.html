@@ -571,7 +571,7 @@
 
 <script>
 // ── TAB SWITCHING
-let cameraStream = null, scanInterval = null;
+let cameraStream = null, scanInterval = null, scanAnimFrame = null;
 
 function switchTab(tab) {
   document.querySelectorAll('.scan-tab').forEach((t,i) => {
@@ -593,7 +593,7 @@ async function startCamera() {
     video.style.display = 'block';
     document.getElementById('camPlaceholder').style.display = 'none';
     document.getElementById('vfOverlay').style.display = 'flex';
-    video.onloadedmetadata = () => { video.play(); scanInterval = setInterval(scanFrame, 100); };
+    video.onloadedmetadata = () => { video.play(); scanAnimFrame = requestAnimationFrame(scanFrame); };
   } catch(e) {
     alert('Camera access denied or unavailable. Please use the Upload tab instead.');
   }
@@ -602,6 +602,7 @@ async function startCamera() {
 function stopCamera() {
   if(cameraStream) { cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
   if(scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if(scanAnimFrame) { cancelAnimationFrame(scanAnimFrame); scanAnimFrame = null; }
   const video = document.getElementById('videoEl');
   video.style.display = 'none';
   document.getElementById('camPlaceholder').style.display = 'flex';
@@ -610,14 +611,26 @@ function stopCamera() {
 
 function scanFrame() {
   const video = document.getElementById('videoEl');
-  if(!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+  if(!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+    scanAnimFrame = requestAnimationFrame(scanFrame);
+    return;
+  }
+  // Crop to the centre square — matches what object-fit:cover shows in the viewfinder
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const side = Math.min(vw, vh);
+  const sx = (vw - side) / 2, sy = (vh - side) / 2;
+  // Process at 640×640 — plenty of detail for jsQR, faster than full resolution
+  const SIZE = 640;
   const canvas = document.getElementById('canvasEl');
-  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.width = SIZE; canvas.height = SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(video, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
-  if(code && code.data) { stopCamera(); processPayload(code.data); }
+  ctx.filter = 'contrast(1.4) brightness(1.05)';
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, SIZE, SIZE);
+  ctx.filter = 'none';
+  const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
+  const code = jsQR(imageData.data, SIZE, SIZE, { inversionAttempts: 'attemptBoth' });
+  if(code && code.data) { stopCamera(); processPayload(code.data); return; }
+  scanAnimFrame = requestAnimationFrame(scanFrame);
 }
 
 // ── UPLOAD
