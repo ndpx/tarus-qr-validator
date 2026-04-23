@@ -606,7 +606,7 @@ function scanFrame() {
   if(!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
   const canvas = document.getElementById('canvasEl');
   canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(video, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
@@ -621,11 +621,15 @@ function handleFileUpload(e) {
   reader.onload = function(ev) {
     const img = new Image();
     img.onload = function() {
+      const MAX = 1500;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
       const canvas = document.getElementById('canvasEl');
-      canvas.width = img.width; canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
       const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
       if(code && code.data) { processPayload(code.data); }
       else { showStatus('fail', '⚠️', 'No QR Code Found', 'The image could not be decoded. Try a clearer or higher-resolution image.'); }
@@ -888,6 +892,7 @@ function showStatus(type, icon, title, sub) {
   document.getElementById('statusIcon').textContent=icon;
   document.getElementById('statusTitle').textContent=title;
   document.getElementById('statusSub').textContent=sub;
+  setTimeout(()=>banner.scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
 
 function showResults(payload, fields, checks, totalFails, totalWarns) {
