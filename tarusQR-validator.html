@@ -571,7 +571,12 @@
 
 <script>
 // ── TAB SWITCHING
-let cameraStream = null, scanInterval = null, scanAnimFrame = null;
+let cameraStream = null, scanInterval = null, scanAnimFrame = null, barcodeDetector = null;
+if('BarcodeDetector' in window) {
+  BarcodeDetector.getSupportedFormats().then(formats => {
+    if(formats.includes('qr_code')) barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+  }).catch(() => {});
+}
 
 function switchTab(tab) {
   document.querySelectorAll('.scan-tab').forEach((t,i) => {
@@ -615,22 +620,29 @@ function scanFrame() {
     scanAnimFrame = requestAnimationFrame(scanFrame);
     return;
   }
-  // Crop to the centre square — matches what object-fit:cover shows in the viewfinder
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const side = Math.min(vw, vh);
-  const sx = (vw - side) / 2, sy = (vh - side) / 2;
-  // Process at 640×640 — plenty of detail for jsQR, faster than full resolution
-  const SIZE = 640;
-  const canvas = document.getElementById('canvasEl');
-  canvas.width = SIZE; canvas.height = SIZE;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.filter = 'contrast(1.4) brightness(1.05)';
-  ctx.drawImage(video, sx, sy, side, side, 0, 0, SIZE, SIZE);
-  ctx.filter = 'none';
-  const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
-  const code = jsQR(imageData.data, SIZE, SIZE, { inversionAttempts: 'attemptBoth' });
-  if(code && code.data) { stopCamera(); processPayload(code.data); return; }
-  scanAnimFrame = requestAnimationFrame(scanFrame);
+  if(barcodeDetector) {
+    // Native BarcodeDetector — fastest path, used on Android Chrome
+    barcodeDetector.detect(video).then(codes => {
+      if(codes.length > 0) { stopCamera(); processPayload(codes[0].rawValue); return; }
+      scanAnimFrame = requestAnimationFrame(scanFrame);
+    }).catch(() => { scanAnimFrame = requestAnimationFrame(scanFrame); });
+  } else {
+    // jsQR fallback — crop to centre square matching the viewfinder
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const side = Math.min(vw, vh);
+    const sx = (vw - side) / 2, sy = (vh - side) / 2;
+    const SIZE = 640;
+    const canvas = document.getElementById('canvasEl');
+    canvas.width = SIZE; canvas.height = SIZE;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.filter = 'contrast(1.4) brightness(1.05)';
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, SIZE, SIZE);
+    ctx.filter = 'none';
+    const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
+    const code = jsQR(imageData.data, SIZE, SIZE, { inversionAttempts: 'attemptBoth' });
+    if(code && code.data) { stopCamera(); processPayload(code.data); return; }
+    scanAnimFrame = requestAnimationFrame(scanFrame);
+  }
 }
 
 // ── UPLOAD
